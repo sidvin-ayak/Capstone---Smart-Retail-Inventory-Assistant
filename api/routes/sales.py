@@ -26,23 +26,58 @@ def daily_revenue(days: int = Query(default=30, ge=1, le=365)) -> list[DailyReve
 
 
 @router.get("/top-products", response_model=list[TopProduct])
-def top_products(limit: int = Query(default=5, ge=1, le=50)) -> list[TopProduct]:
-    # TODO (intern): also accept an optional `category` filter, similar to
-    #                /inventory?category=Electronics. Mirror the same pattern.
+def top_products(
+    limit: int = Query(default=5, ge=1, le=50),
+    category: str | None = Query(
+        default=None,
+        description="Optional category filter"
+    ),
+) -> list[TopProduct]:
+    """
+    Return top-performing products ranked by revenue.
+
+    Supports optional category-based filtering for
+    focused sales analytics.
+    """
+
     sql = """
-        SELECT p.product_id, p.product_name, p.category,
-               SUM(s.quantity) AS units_sold,
-               SUM(s.total) AS revenue
+        SELECT
+            p.product_id,
+            p.product_name,
+            p.category,
+            SUM(s.quantity) AS units_sold,
+            SUM(s.total) AS revenue
         FROM sales s
-        JOIN products p ON p.product_id = s.product_id
-        GROUP BY p.product_id, p.product_name, p.category
+        JOIN products p
+            ON p.product_id = s.product_id
+    """
+
+    params = []
+
+    # ---- Optional filtering ----
+    if category:
+        sql += """
+            WHERE LOWER(p.category) = LOWER(?)
+        """
+        params.append(category.strip())
+
+    # ---- Aggregation + sorting ----
+    sql += """
+        GROUP BY
+            p.product_id,
+            p.product_name,
+            p.category
         ORDER BY revenue DESC
         LIMIT ?
     """
-    with get_conn() as conn:
-        rows = conn.execute(sql, (limit,)).fetchall()
-    return [TopProduct(**dict(r)) for r in rows]
 
+    params.append(limit)
+
+    # ---- Execute query ----
+    with get_conn() as conn:
+        rows = conn.execute(sql, tuple(params)).fetchall()
+
+    return [TopProduct(**dict(r)) for r in rows]
 
 @router.get("/summary")
 def summary() -> dict:
