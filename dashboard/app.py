@@ -169,7 +169,7 @@ if not category_data.empty:
             yanchor="bottom",
             y=0.99,
             xanchor="center",
-            x=2.6,
+            x=2.1,
         ),
 
         # Hover behavior
@@ -202,7 +202,7 @@ def _color_status(val: str) -> str:
 
 
 st.dataframe(
-    inv.style.applymap(_color_status, subset=["status"]),
+    inv.style.map(_color_status, subset=["status"]),
     use_container_width=True,
     hide_index=True,
 )
