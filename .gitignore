@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+capstone.db
+.pytest_cache/
+.streamlit/
+*.egg-info/
+.ipynb_checkpoints/

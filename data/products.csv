@@ -1,0 +1,13 @@
+product_id,product_name,category,unit_price,reorder_level
+P001,Wireless Mouse,Electronics,599.00,20
+P002,Mechanical Keyboard,Electronics,2499.00,10
+P003,USB-C Hub,Electronics,1299.00,15
+P004,Bluetooth Headphones,Electronics,1899.00,12
+P005,Webcam HD,Electronics,2199.00,8
+P006,Office Chair,Furniture,7499.00,5
+P007,Standing Desk,Furniture,12999.00,3
+P008,Desk Lamp,Furniture,899.00,15
+P009,Notebook A5,Stationery,149.00,50
+P010,Gel Pen Pack,Stationery,99.00,75
+P011,Sticky Notes,Stationery,69.00,80
+P012,Whiteboard Marker,Stationery,49.00,100
