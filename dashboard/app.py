@@ -76,7 +76,8 @@ with left:
             markers=True,
             labels={"transaction_date": "Date", "revenue": "Revenue (Rs)"},
         )
-        fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=320)
+        fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=320,# Hover behavior
+        hovermode="x unified")
         st.plotly_chart(fig, use_container_width=True)
 
 with right:
@@ -90,11 +91,95 @@ with right:
             color="category",
             labels={"product_name": "Product", "revenue": "Revenue (Rs)"},
         )
-        fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=320)
+        fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=320,# Hover behavior
+        hovermode="x unified")
         st.plotly_chart(fig, use_container_width=True)
 
-# TODO (intern): add a 3rd chart — revenue by category (pie or bar).
-# Hint: GET /sales/top-products?limit=50 then groupby category in pandas.
+# ---- Revenue by category ----
+
+st.subheader("Revenue-based Categorical Assortment")
+
+category_data = pd.DataFrame(fetch("/sales/top-products", limit=50))
+
+if not category_data.empty:
+    category_summary = (
+        category_data.groupby("category", as_index=False)["revenue"]
+        .sum()
+        .sort_values(by="revenue", ascending=False)
+    )
+
+    fig = px.bar(
+        category_summary,
+        x="category",
+        y="revenue",
+        color="category",
+        text="revenue",
+        labels={
+            "category": "Category",
+            "revenue": "Revenue (Rs)"
+        },
+    )
+
+    fig.update_traces(
+        texttemplate='Rs %{text:,.0f}',
+        textposition='outside',
+        marker_line_width=1.5,
+        hovertemplate=
+        "<b>%{x}</b><br>" +
+        "Revenue: Rs %{y:,.0f}<extra></extra>",
+    )
+
+    fig.update_layout(
+        height=320,
+
+        # Transparent dark-theme friendly background
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+
+        # Margins
+        margin=dict(l=20, r=20, t=60, b=20),
+
+        # Better typography
+        title={
+            "text": "Category-wise Revenue Distribution",
+            "x": 0.02,
+            "xanchor": "left",
+            "font": {
+                "size": 22,
+            }
+        },
+
+        # Axis styling
+        xaxis=dict(
+            title="Product Category",
+            showgrid=False,
+            zeroline=False,
+        ),
+
+        yaxis=dict(
+            title="Revenue (Rs)",
+            gridcolor="rgba(255,255,255,0.08)",
+            zeroline=False,
+        ),
+
+        # Legend styling
+        legend=dict(
+            title="Category",
+            orientation="v",
+            yanchor="bottom",
+            y=0.99,
+            xanchor="center",
+            x=2.6,
+        ),
+
+        # Hover behavior
+        hovermode="x unified",
+
+        # Smooth aesthetics
+        bargap=0.35,
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
 
 st.divider()
 
