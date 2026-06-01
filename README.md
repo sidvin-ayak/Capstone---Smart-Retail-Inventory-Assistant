@@ -166,3 +166,33 @@ The scaffold is meant to be ~60% complete. Things left for the intern:
 - Docker compose for the full stack.
 - Auth on the API (FastAPI dependency injection makes this easy).
 - A polished demo deck and video.
+
+
+## Future Enhancements / Post-Internship Roadmap
+
+### 1. Functional and Aesthetic Enhancement of the Dashboard UI
+- Modernize dashboard layout and component spacing.
+- Introduce a consistent visual theme and branding.
+- Improve KPI card design and visual prominence.
+- Add interactive filtering across charts and inventory tables.
+- Implement drill-down analytics for categories and products.
+- Add forecast visualization panels.
+- Introduce inventory-risk indicators and reorder alerts.
+- Improve chatbot UI integration within the dashboard.
+- Add loading states, error states, and user feedback mechanisms.
+- Optimize responsiveness for different screen sizes.
+- Improve chart aesthetics and analytical readability.
+
+### 2. Vector Database Migration
+- Replace TF-IDF retrieval with Chroma + embeddings for semantic search.
+
+### 3. Advanced Forecasting Module
+- Add MAE and RMSE evaluation metrics.
+- Introduce confidence intervals and inventory depletion projections.
+
+### 4. Deployment and Infrastructure
+- Containerize the application using Docker and Docker Compose.
+- Deploy to a cloud platform.
+
+### 5. Business Intelligence Expansion
+- Add trend analysis and predictive inventory recommendations.
