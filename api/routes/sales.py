@@ -8,21 +8,24 @@ from api.models import DailyRevenue, TopProduct
 
 router = APIRouter(prefix="/sales", tags=["sales"])
 
-
 @router.get("/daily-revenue", response_model=list[DailyRevenue])
 def daily_revenue(days: int = Query(default=30, ge=1, le=365)) -> list[DailyRevenue]:
+    
     sql = """
-        SELECT transaction_date,
-               SUM(total) AS revenue,
-               SUM(quantity) AS units_sold
-        FROM sales
-        GROUP BY transaction_date
+        SELECT
+            transaction_date,
+            revenue,
+            units_sold
+        FROM v_daily_revenue
         ORDER BY transaction_date DESC
         LIMIT ?
     """
+
     with get_conn() as conn:
         rows = conn.execute(sql, (days,)).fetchall()
+
     return [DailyRevenue(**dict(r)) for r in rows][::-1]
+
 
 
 @router.get("/top-products", response_model=list[TopProduct])
@@ -33,12 +36,6 @@ def top_products(
         description="Optional category filter"
     ),
 ) -> list[TopProduct]:
-    """
-    Return top-performing products ranked by revenue.
-
-    Supports optional category-based filtering for
-    focused sales analytics.
-    """
 
     sql = """
         SELECT
@@ -54,14 +51,14 @@ def top_products(
 
     params = []
 
-    # ---- Optional filtering ----
+    # Optional filtering
     if category:
         sql += """
             WHERE LOWER(p.category) = LOWER(?)
         """
         params.append(category.strip())
 
-    # ---- Aggregation + sorting ----
+    # Aggregation & sorting
     sql += """
         GROUP BY
             p.product_id,
@@ -73,7 +70,7 @@ def top_products(
 
     params.append(limit)
 
-    # ---- Execute query ----
+    # Query execution
     with get_conn() as conn:
         rows = conn.execute(sql, tuple(params)).fetchall()
 

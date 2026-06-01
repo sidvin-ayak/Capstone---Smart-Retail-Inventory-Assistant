@@ -73,12 +73,18 @@ def seed_sqlite() -> Path:
         inventory.to_sql("inventory", conn, if_exists="append", index=False)
         sales.to_sql("sales", conn, if_exists="append", index=False)
 
-        # TODO (intern): add a derived view e.g. v_daily_revenue that the
-        # dashboard can query directly instead of recomputing in Python.
-        # Example:
-        #   CREATE VIEW v_daily_revenue AS
-        #   SELECT transaction_date, SUM(total) AS revenue
-        #   FROM sales GROUP BY transaction_date;
+        # Create daily revenue reporting view
+        conn.execute("""
+                     CREATE VIEW IF NOT EXISTS v_daily_revenue AS
+                     SELECT
+                        transaction_date,
+                        ROUND(SUM(total), 2) AS revenue,
+                        COUNT(transaction_id) AS transactions,
+                        SUM(quantity) AS units_sold
+                    FROM sales
+                    GROUP BY transaction_date
+                    ORDER BY transaction_date ASC
+                """)
         conn.commit()
     finally:
         conn.close()
