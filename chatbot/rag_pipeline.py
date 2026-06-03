@@ -25,7 +25,7 @@ from api.database import get_conn
 from chatbot.llm_client import get_llm
 from chatbot.prompts import CHAT_PROMPT
 
-TOP_K = 6
+TOP_K = 8 # Improve answer quality
 
 
 def _build_documents() -> list[Document]:
@@ -110,10 +110,80 @@ def _build_documents() -> list[Document]:
                 )
             )
 
-    # TODO (intern): add documents for daily trends (e.g. last 7 days vs prior 7
-    # days) and for forecast outputs so the bot can answer "is X trending up?"
-    return docs
+        # Trend analysis documents
+        trends = conn.execute(
+            """
+            WITH daily_sales AS (
+                SELECT
+                    product_id,
+                    transaction_date,
+                    SUM(quantity) AS units
+                FROM sales
+                GROUP BY product_id, transaction_date
+            )
+            SELECT
+                p.product_id,
+                p.product_name,
+                COALESCE(
+                    (
+                        SELECT AVG(units)
+                        FROM (
+                            SELECT units
+                            FROM daily_sales ds
+                            WHERE ds.product_id = p.product_id
+                            ORDER BY transaction_date DESC
+                            LIMIT 7
+                        )
+                    ),
+                    0
+                ) AS recent_avg,
+                COALESCE(
+                    (
+                        SELECT AVG(units)
+                        FROM (
+                            SELECT units
+                            FROM daily_sales ds
+                            WHERE ds.product_id = p.product_id
+                            ORDER BY transaction_date DESC
+                            LIMIT 14 OFFSET 7
+                        )
+                    ),
+                    0
+                ) AS previous_avg
+            FROM products p
+            """
+        ).fetchall()
+        for r in trends:
+            recent = float(r["recent_avg"] or 0)
+            previous = float(r["previous_avg"] or 0)
+            if previous == 0:
+                trend = "STABLE"
+                growth_pct = 0.0
+            else:
+                growth_pct = ((recent - previous) / previous) * 100
 
+                if growth_pct > 10:
+                    trend = "UPWARD"
+                elif growth_pct < -10:
+                    trend = "DOWNWARD"
+                else:
+                    trend = "STABLE"
+            text = (
+                f"Demand trend for product {r['product_id']} "
+                f"'{r['product_name']}': {trend}. "
+                f"Recent average daily sales: {recent:.2f} units. "
+                f"Previous average daily sales: {previous:.2f} units. "
+                f"Demand change: {growth_pct:.2f}%."
+            )
+            docs.append(
+                Document(
+                    page_content=text,
+                    metadata={
+                        "source": f"trend:{r['product_id']}"
+                    },
+                )
+            )
+    return docs
 
 @lru_cache(maxsize=1)
 def _retriever() -> TFIDFRetriever:
