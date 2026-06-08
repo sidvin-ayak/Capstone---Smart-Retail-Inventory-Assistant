@@ -17,7 +17,8 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Iterable
 
-from langchain_community.retrievers import TFIDFRetriever
+from langchain_chroma import Chroma
+from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 
@@ -26,7 +27,7 @@ from chatbot.llm_client import get_llm
 from chatbot.prompts import CHAT_PROMPT
 
 TOP_K = 8 # Improve answer quality
-
+EMBED_MODEL = "nomic-embed-text"
 
 def _build_documents() -> list[Document]:
     """Pull current state from the DB and emit one Document per fact."""
@@ -186,9 +187,11 @@ def _build_documents() -> list[Document]:
     return docs
 
 @lru_cache(maxsize=1)
-def _retriever() -> TFIDFRetriever:
+def _retriever():
     docs = _build_documents()
-    return TFIDFRetriever.from_documents(docs, k=TOP_K)
+    embeddings = OllamaEmbeddings(model=EMBED_MODEL)
+    vectorstore = Chroma.from_documents(documents=docs, embedding=embeddings, collection_name="retail_inventory", persist_directory="./chroma_db")
+    return vectorstore.as_retriever(search_kwargs={"k": TOP_K})
 
 
 def reset_index() -> None:
