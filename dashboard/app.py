@@ -49,6 +49,7 @@ st.caption(f"API: {API_BASE_URL}")
 try:
     summary = fetch("/sales/summary")
     low_stock = fetch("/inventory/low-stock")
+    products_df = pd.DataFrame(fetch("/inventory"))
     trend_data = pd.DataFrame(fetch("/sales/trends"))
 except Exception as exc:
     st.error(f"Could not reach API: {exc}")
@@ -334,9 +335,15 @@ st.divider()
 
 # ---- Inventory table ----
 st.subheader("Inventory status")
+inventory_df = pd.DataFrame(
+    fetch("/inventory")
+)
+categories = sorted(
+    inventory_df["category"].dropna().unique().tolist()
+)
 category = st.selectbox(
     "Category filter",
-    ["All", "Electronics", "Furniture", "Stationery"],
+    ["All"] + categories,
 )
 params = {} if category == "All" else {"category": category}
 inv = pd.DataFrame(fetch("/inventory", **params))
@@ -396,6 +403,59 @@ if not forecast.empty:
         use_container_width=True,
     )
 
+st.divider()
+
+# ---- Forecast Explorer ----
+st.subheader("Demand Forecast Explorer")
+forecast_products = products_df[
+    ["product_id", "product_name"]
+].drop_duplicates()
+product_map = {
+    f"{row.product_name} ({row.product_id})": row.product_id
+    for _, row in forecast_products.iterrows()
+}
+selected_product = st.selectbox(
+    "Select Product",
+    options=list(product_map.keys()),
+)
+selected_product_id = product_map[selected_product]
+forecast_data = pd.DataFrame(
+    fetch(
+        f"/forecast/{selected_product_id}",
+        horizon=7,
+    )
+)
+
+if not forecast_data.empty:
+
+    fig = px.line(
+        forecast_data,
+        x="day_offset",
+        y="predicted_units",
+        markers=True,
+        labels={
+            "day_offset": "Future Day",
+            "predicted_units": "Predicted Units"
+        },
+        title="Next 7-Day Demand Forecast",
+    )
+
+    fig.update_layout(
+        height=350,
+        hovermode="x unified",
+        margin=dict(
+            l=20,
+            r=20,
+            t=50,
+            b=20,
+        ),
+    )
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+    )
+    
 st.divider()
 
 # ---- Chatbot ----
