@@ -57,7 +57,35 @@ k1, k2, k3, k4 = st.columns(4)
 k1.metric("Total revenue", f"Rs {summary['revenue']:,.0f}")
 k2.metric("Units sold", f"{summary['units_sold']:,}")
 k3.metric("Transactions", f"{summary['transactions']:,}")
-k4.metric("Items needing reorder", len(low_stock))
+# KPI No.4 Enhancement
+out_of_stock = len([i for i in low_stock if i["status"] == "OUT_OF_STOCK"])
+k4.metric("Out of Stock",out_of_stock,)
+
+st.divider()
+
+st.subheader("Inventory Health")
+inventory_health = pd.DataFrame(fetch("/inventory"))
+if not inventory_health.empty:
+    status_counts = (
+        inventory_health["status"]
+        .value_counts()
+        .reset_index()
+    )
+    status_counts.columns = ["status","count",]
+    fig = px.pie(
+        status_counts,
+        names="status",
+        values="count",
+        hole=0.45,
+    )
+    fig.update_layout(
+        height=350,
+        margin=dict(l=10, r=10, t=20, b=20),
+    )
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+    )
 
 st.divider()
 
@@ -195,17 +223,58 @@ inv = pd.DataFrame(fetch("/inventory", **params))
 
 def _color_status(val: str) -> str:
     return {
-        "OK": "background-color: #d1fae5",
-        "LOW": "background-color: #fef3c7",
-        "OUT_OF_STOCK": "background-color: #fee2e2",
+        "OK": "background-color: #22c55e; color: black;",
+        "LOW": "background-color: #facc15; color: black;",
+        "OUT_OF_STOCK": "background-color: #ef4444; color: white;",
     }.get(val, "")
-
 
 st.dataframe(
     inv.style.map(_color_status, subset=["status"]),
     use_container_width=True,
     hide_index=True,
 )
+
+st.divider()
+
+st.subheader("Demand Forecasting")
+products = pd.DataFrame(fetch("/inventory"))
+selected_product = st.selectbox("Select Product",products["product_id"].tolist(),)
+horizon = st.slider(
+    "Forecast Horizon (Days)",
+    min_value=1,
+    max_value=30,
+    value=7,
+)
+forecast = pd.DataFrame(
+    fetch(
+        f"/forecast/{selected_product}",
+        horizon=horizon,
+    )
+)
+if not forecast.empty:
+    fig = px.line(
+        forecast,
+        x="day_offset",
+        y="predicted_units",
+        markers=True,
+        labels={
+            "day_offset": "Future Day",
+            "predicted_units": "Predicted Units",
+        },
+    )
+    fig.update_layout(
+        height=350,
+        hovermode="x unified",
+    )
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+    )
+    st.dataframe(
+        forecast,
+        hide_index=True,
+        use_container_width=True,
+    )
 
 st.divider()
 
