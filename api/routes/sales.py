@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query
 
 from api.database import get_conn
 from api.models import DailyRevenue, TopProduct
+from api.models import ProductTrend
 
 router = APIRouter(prefix="/sales", tags=["sales"])
 
@@ -89,3 +90,77 @@ def summary() -> dict:
             """
         ).fetchone()
     return dict(row)
+
+@router.get("/trends", response_model=list[ProductTrend])
+def sales_trends() -> list[ProductTrend]:
+
+    sql = """
+    WITH daily_sales AS (
+        SELECT
+            product_id,
+            transaction_date,
+            SUM(quantity) AS units
+        FROM sales
+        GROUP BY product_id, transaction_date
+    )
+    SELECT
+        p.product_id,
+        p.product_name,
+        COALESCE(
+            (
+                SELECT AVG(units)
+                FROM (
+                    SELECT units
+                    FROM daily_sales ds
+                    WHERE ds.product_id = p.product_id
+                    ORDER BY transaction_date DESC
+                    LIMIT 7
+                )
+            ),
+            0
+        ) AS recent_avg,
+        COALESCE(
+            (
+                SELECT AVG(units)
+                FROM (
+                    SELECT units
+                    FROM daily_sales ds
+                    WHERE ds.product_id = p.product_id
+                    ORDER BY transaction_date DESC
+                    LIMIT 14 OFFSET 7
+                )
+            ),
+            0
+        ) AS previous_avg
+
+    FROM products p
+    """
+    with get_conn() as conn:
+        rows = conn.execute(sql).fetchall()
+
+    trends = []
+
+    for row in rows:
+        recent = float(row["recent_avg"] or 0)
+        previous = float(row["previous_avg"] or 0)
+        if previous == 0:
+            growth_pct = 0.0
+            trend = "STABLE"
+        else:
+            growth_pct = ((recent - previous) / previous) * 100
+            if growth_pct > 10:
+                trend = "UPWARD"
+            elif growth_pct < -10:
+                trend = "DOWNWARD"
+            else:
+                trend = "STABLE"
+
+        trends.append(
+            ProductTrend(
+                product_id=row["product_id"],
+                product_name=row["product_name"],
+                trend=trend,
+                growth_pct=round(growth_pct, 2),
+            )
+        )
+    return trends

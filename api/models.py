@@ -20,6 +20,11 @@ class InventoryItem(BaseModel):
     reorder_level: int
     status: str = Field(description="OK | LOW | OUT_OF_STOCK")
 
+class ProductTrend(BaseModel):
+    product_id: str
+    product_name: str
+    trend: str
+    growth_pct: float
 
 class DailyRevenue(BaseModel):
     transaction_date: str

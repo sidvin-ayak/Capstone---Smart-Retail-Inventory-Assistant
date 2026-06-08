@@ -49,6 +49,7 @@ st.caption(f"API: {API_BASE_URL}")
 try:
     summary = fetch("/sales/summary")
     low_stock = fetch("/inventory/low-stock")
+    trend_data = pd.DataFrame(fetch("/sales/trends"))
 except Exception as exc:
     st.error(f"Could not reach API: {exc}")
     st.stop()
@@ -63,6 +64,7 @@ k4.metric("Out of Stock",out_of_stock,)
 
 st.divider()
 
+# Inventory health visualizer
 st.subheader("Inventory Health")
 inventory_health = pd.DataFrame(fetch("/inventory"))
 if not inventory_health.empty:
@@ -211,6 +213,125 @@ if not category_data.empty:
 
 st.divider()
 
+# General demand trend analytics derived from the internsip backend deliverable in chatbot/rag_pipeline.py
+st.subheader("Demand Trend Analytics")
+upward_count = len(
+    trend_data[trend_data["trend"] == "UPWARD"]
+)
+stable_count = len(
+    trend_data[trend_data["trend"] == "STABLE"]
+)
+downward_count = len(
+    trend_data[trend_data["trend"] == "DOWNWARD"]
+)
+t1, t2, t3 = st.columns(3)
+t1.metric(
+    "Growing Products",
+    upward_count
+)
+t2.metric(
+    "Stable Products",
+    stable_count
+)
+t3.metric(
+    "Declining Products",
+    downward_count
+)
+if not trend_data.empty:
+    fig = px.bar(
+        trend_data,
+        x="product_name",
+        y="growth_pct",
+        color="trend",
+        title="Product Demand Growth (%)"
+    )
+    fig.update_layout(
+        height=400,
+        hovermode="x unified"
+    )
+    st.plotly_chart(
+        fig,
+        use_container_width=True
+    )
+st.dataframe(
+    trend_data.sort_values(
+        by="growth_pct",
+        ascending=False
+    ),
+    use_container_width=True,
+    hide_index=True
+)
+
+st.divider()
+
+# Business insight panel to interpret data for the user and give conclusions
+st.subheader("Business Insights")
+inv1 = pd.DataFrame(
+    fetch("/inventory")
+)
+fastest_growing = trend_data.loc[
+    trend_data["growth_pct"].idxmax()
+]
+
+fastest_declining = trend_data.loc[
+    trend_data["growth_pct"].idxmin()
+]
+
+total_items = len(inv1)
+healthy_items = len(
+    inv1[inv1["status"] == "OK"]
+)
+inventory_health = (
+    healthy_items / total_items * 100
+    if total_items > 0
+    else 0
+)
+
+critical_stock = len(
+    inv1[inv1["status"] == "OUT_OF_STOCK"]
+)
+
+i1, i2, i3, i4 = st.columns(4)
+
+i1.metric(
+    "Inventory Health",
+    f"{inventory_health:.1f}%"
+)
+
+i2.metric(
+    "Out of Stock",
+    critical_stock
+)
+
+i3.metric(
+    "Top Growth",
+    fastest_growing["product_name"]
+)
+
+i4.metric(
+    "Top Decline",
+    fastest_declining["product_name"]
+)
+
+st.info(
+    f"Fastest growing product: "
+    f"{fastest_growing['product_name']} "
+    f"({fastest_growing['growth_pct']:.1f}% growth)"
+)
+
+st.warning(
+    f"Fastest declining product: "
+    f"{fastest_declining['product_name']} "
+    f"({fastest_declining['growth_pct']:.1f}% change)"
+)
+
+if critical_stock > 0:
+    st.error(
+        f"{critical_stock} products are currently out of stock."
+    )
+
+st.divider()
+
 # ---- Inventory table ----
 st.subheader("Inventory status")
 category = st.selectbox(
@@ -220,12 +341,11 @@ category = st.selectbox(
 params = {} if category == "All" else {"category": category}
 inv = pd.DataFrame(fetch("/inventory", **params))
 
-
 def _color_status(val: str) -> str:
     return {
         "OK": "background-color: #22c55e; color: black;",
         "LOW": "background-color: #facc15; color: black;",
-        "OUT_OF_STOCK": "background-color: #ef4444; color: white;",
+        "OUT_OF_STOCK": "background-color: #ef4444; color: black;",
     }.get(val, "")
 
 st.dataframe(
